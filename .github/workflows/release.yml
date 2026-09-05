@@ -78,4 +78,4 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" \
             --title "${GITHUB_REF_NAME}" \
             --generate-notes \
-            cosmetics-paper/build/libs/landmc-cosmetics.jar
+            cosmetics-paper/build/libs/landmc-cosmetics-paper.jar
