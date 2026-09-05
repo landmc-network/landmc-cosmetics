@@ -16,12 +16,18 @@ import java.util.Objects;
  * {@code FLAME} and {@code SPIRAL} mean; this module would only be a third place to add a
  * particle to.
  *
+ * <p>Most of them are blank for any given cosmetic, which is the price of one record instead of
+ * a hierarchy of them: a sealed interface per family would serialise the same bytes and cost a
+ * type to add every time somebody adds a way to be shown off.
+ *
  * @param kind which family it belongs to, and therefore which of the fields below mean anything
- * @param particle the particle to draw, for {@link Kind#PARTICLE}
+ * @param particle the particle to draw, for {@link Kind#PARTICLE} and the trail behind a pet
  * @param pattern how to arrange it - a helix, a ring, a cloud
  * @param colour the glow colour, for {@link Kind#GLOW}, as a named Minecraft colour
  * @param material the item a worn model is carried on, for {@link Kind#WING}
  * @param modelData which model of that item to draw, for {@link Kind#WING}
+ * @param entity what a pet is, for {@link Kind#PET}, as a Minecraft entity type
+ * @param text the words shown, for {@link Kind#STATUS}, {@link Kind#TITLE} and a pet's name
  */
 public record CosmeticEffect(
         Kind kind,
@@ -29,7 +35,9 @@ public record CosmeticEffect(
         String pattern,
         String colour,
         String material,
-        int modelData) {
+        int modelData,
+        String entity,
+        String text) {
 
     public CosmeticEffect {
         Objects.requireNonNull(kind, "kind");
@@ -37,19 +45,21 @@ public record CosmeticEffect(
         pattern = pattern == null ? "" : pattern;
         colour = colour == null ? "" : colour;
         material = material == null ? "" : material;
+        entity = entity == null ? "" : entity;
+        text = text == null ? "" : text;
     }
 
     /** Nothing worn. Sent when a player takes a cosmetic off, so the backend clears it. */
     public static CosmeticEffect none(Kind kind) {
-        return new CosmeticEffect(kind, "", "", "", "", 0);
+        return new CosmeticEffect(kind, "", "", "", "", 0, "", "");
     }
 
     public static CosmeticEffect particle(String particle, String pattern) {
-        return new CosmeticEffect(Kind.PARTICLE, particle, pattern, "", "", 0);
+        return new CosmeticEffect(Kind.PARTICLE, particle, pattern, "", "", 0, "", "");
     }
 
     public static CosmeticEffect glow(String colour) {
-        return new CosmeticEffect(Kind.GLOW, "", "", colour, "", 0);
+        return new CosmeticEffect(Kind.GLOW, "", "", colour, "", 0, "", "");
     }
 
     /**
@@ -60,7 +70,27 @@ public record CosmeticEffect(
      * side of the network has no way to name one directly.
      */
     public static CosmeticEffect wing(String material, int modelData) {
-        return new CosmeticEffect(Kind.WING, "", "", "", material, modelData);
+        return new CosmeticEffect(Kind.WING, "", "", "", material, modelData, "", "");
+    }
+
+    /** A line of text floating above the player's head. */
+    public static CosmeticEffect status(String text) {
+        return new CosmeticEffect(Kind.STATUS, "", "", "", "", 0, "", text);
+    }
+
+    /** Words shown beside the player's name, in chat and in the tab list. */
+    public static CosmeticEffect title(String text) {
+        return new CosmeticEffect(Kind.TITLE, "", "", "", "", 0, "", text);
+    }
+
+    /**
+     * A small creature that follows the player about.
+     *
+     * <p>A real animal rather than a floating model, because the animals are already in the
+     * game and a pack would have to draw a bee that everybody already knows the look of.
+     */
+    public static CosmeticEffect pet(String entity, String text, String particle) {
+        return new CosmeticEffect(Kind.PET, particle, "", "", "", 0, entity, text);
     }
 
     /** Whether this is a cosmetic at all, or the absence of one. */
@@ -69,6 +99,8 @@ public record CosmeticEffect(
             case PARTICLE -> !this.particle.isBlank();
             case GLOW -> !this.colour.isBlank();
             case WING -> !this.material.isBlank() && this.modelData > 0;
+            case STATUS, TITLE -> !this.text.isBlank();
+            case PET -> !this.entity.isBlank();
         };
     }
 
@@ -88,6 +120,15 @@ public record CosmeticEffect(
         GLOW,
 
         /** A model carried behind the player. */
-        WING
+        WING,
+
+        /** A line of text above the player's head. */
+        STATUS,
+
+        /** Words beside the player's name, wherever that name is written. */
+        TITLE,
+
+        /** A creature following the player around. */
+        PET
     }
 }

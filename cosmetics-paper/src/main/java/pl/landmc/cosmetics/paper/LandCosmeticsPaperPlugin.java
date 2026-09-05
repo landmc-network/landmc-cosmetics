@@ -18,6 +18,7 @@ import pl.landmc.cosmetics.api.CosmeticSnapshotRequest;
 import pl.landmc.cosmetics.paper.config.CosmeticsConfig;
 import pl.landmc.cosmetics.paper.listener.CosmeticListener;
 import pl.landmc.platform.api.ModuleLifecycle;
+import pl.landmc.platform.component.ComponentFormatter;
 import pl.landmc.platform.config.ConfigPlaceholders;
 import pl.landmc.platform.config.ConfigService;
 import pl.landmc.platform.messaging.MessageBus;
@@ -38,6 +39,10 @@ import pl.landmc.platform.paper.scheduler.MainThreadExecutor;
  * told and it draws. A backend that could also decide would be a second opinion about what
  * somebody paid for.
  *
+ * <p>Six families, and each is switched on separately here, because the answer is a property of
+ * the server rather than of the cosmetic: a lobby wants all of it, and a server where people
+ * are fighting wants none of the parts that get in the way of seeing what is happening.
+ *
  * <p>Every message arrives on a messaging worker and every Bukkit call has to happen on the main
  * thread, so each handler hands the work over before touching a player.
  */
@@ -52,6 +57,10 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
     private ParticleRenderer particles;
     private GlowRenderer glow;
     private WingRenderer wings;
+    private StatusRenderer statuses;
+    private PetRenderer pets;
+    private TitleApplier titles;
+    private CosmeticHeartbeat heartbeat;
     private MessageBus bus;
 
     @Override
@@ -61,11 +70,20 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
         this.config = configs.load(
                 this.getDataFolder().toPath(), "config.yml", CosmeticsConfig.class);
 
+        ComponentFormatter formatter = ComponentFormatter.standard();
+
         this.glow = new GlowRenderer(this, this.state);
         this.wings = new WingRenderer(this, this.config, this.state);
+        this.statuses = new StatusRenderer(this, this.config, this.state, formatter);
+        this.pets = new PetRenderer(this, this.config, this.state, formatter);
+        this.titles = new TitleApplier(this, this.config, this.state);
+
         this.particles = new ParticleRenderer(this, this.config, this.state);
         this.particles.start();
-        this.wings.start();
+
+        this.heartbeat = new CosmeticHeartbeat(
+                this, this.state, this.wings, this.statuses, this.pets);
+        this.heartbeat.start();
 
         Executor mainThread = new MainThreadExecutor(this);
 
@@ -74,16 +92,18 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
         this.lifecycle.register(this.bus).enableAll();
 
         this.getServer().getPluginManager().registerEvents(
-                new CosmeticListener(this, this.state, this.glow, this.wings), this);
+                new CosmeticListener(
+                        this, this.glow, this.wings, this.statuses, this.pets, this.titles),
+                this);
 
         this.requestSnapshot(mainThread);
 
         LOGGER.info(
-                "LandMC Cosmetics (backend) ready ({}, czasteczki {}).",
+                "LandMC Cosmetics (backend) ready ({}, rysowane: {}).",
                 this.config.messaging.enabled
                         ? "Redis"
                         : "no messaging - nothing will be worn here",
-                this.particles.isEnabled() ? "wlaczone" : "wylaczone");
+                this.drawn());
     }
 
     @Override
@@ -92,8 +112,8 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
             this.particles.stop();
         }
 
-        if (this.wings != null) {
-            this.wings.stop();
+        if (this.heartbeat != null) {
+            this.heartbeat.stop();
         }
 
         // Before the bus goes: a player left glowing is a player the next plugin to touch that
@@ -105,9 +125,18 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
             }
         }
 
-        // An armour stand nobody takes away is an armour stand still standing there next week.
+        // An entity nobody takes away is an entity still standing there next week.
         if (this.wings != null) {
             this.wings.removeAll();
+        }
+        if (this.statuses != null) {
+            this.statuses.removeAll();
+        }
+        if (this.pets != null) {
+            this.pets.removeAll();
+        }
+        if (this.titles != null) {
+            this.titles.removeAll(this.getServer().getOnlinePlayers());
         }
 
         this.lifecycle.disableAll();
@@ -125,15 +154,28 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
                     return;
                 }
 
-                switch (message.effect().kind()) {
-                    case GLOW -> this.glow.apply(player);
-                    case WING -> this.wings.apply(player);
-                    // Particles need nothing here: the draw pass reads the state each frame.
-                    case PARTICLE -> { }
-                    default -> { }
-                }
+                this.show(player, message.effect().kind());
             });
         });
+    }
+
+    /**
+     * Puts on, or takes off, the one family that just changed.
+     *
+     * <p>One family and not all of them: a player changing their glow should not have their
+     * wings taken off and spawned again, and a pet that flickers every time its owner buys
+     * something else is a pet that looks broken.
+     */
+    private void show(Player player, CosmeticEffect.Kind kind) {
+        switch (kind) {
+            case GLOW -> this.glow.apply(player);
+            case WING -> this.wings.apply(player);
+            case STATUS -> this.statuses.apply(player);
+            case PET -> this.pets.apply(player);
+            case TITLE -> this.titles.apply(player);
+            // Particles need nothing here: the draw pass reads the state each frame.
+            case PARTICLE -> { }
+        }
     }
 
     /**
@@ -159,9 +201,11 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
                     }
                     this.state.replaceAll(entries);
 
+                    // Only what the heartbeat does not put on by itself. It notices the rest on
+                    // its next pass, which is a tick away.
                     for (Player player : this.getServer().getOnlinePlayers()) {
                         this.glow.apply(player);
-                        this.wings.apply(player);
+                        this.titles.apply(player);
                     }
 
                     LOGGER.info("Cosmetic state received: {} worn.", snapshot.worn().size());
@@ -173,6 +217,27 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
                             throwable.getMessage());
                     return null;
                 });
+    }
+
+    /** Which families this server draws, for the line in the log that says what it will do. */
+    private String drawn() {
+        List<String> families = new ArrayList<>(5);
+        if (this.particles.isEnabled()) {
+            families.add("czasteczki");
+        }
+        if (this.wings.isEnabled()) {
+            families.add("skrzydla");
+        }
+        if (this.statuses.isEnabled()) {
+            families.add("statusy");
+        }
+        if (this.pets.isEnabled()) {
+            families.add("pupile");
+        }
+        if (this.titles.isEnabled()) {
+            families.add("tytuly");
+        }
+        return families.isEmpty() ? "nic" : String.join(", ", families);
     }
 
     private MessageBus createBus() {

@@ -13,7 +13,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
@@ -37,8 +36,8 @@ import pl.landmc.cosmetics.paper.config.CosmeticsConfig;
  *
  * <p>Riding something does not make an entity turn with it. A display keeps whatever yaw it was
  * spawned with, so a pair of wings that is never told otherwise points at one compass direction
- * for ever while its wearer walks circles around it. Turning them is therefore a job with a
- * heartbeat, and it walks the few people wearing wings rather than everybody online.
+ * for ever while its wearer walks circles around it. Turning them is therefore something the
+ * heartbeat does, once a tick, for the few people wearing a pair.
  *
  * <p>The displays are removed when the wearer leaves, when they take the wings off and when the
  * plugin stops. An entity nobody cleans up is an entity still there next week.
@@ -60,79 +59,28 @@ public final class WingRenderer {
      */
     private final Map<UUID, Float> facing = new HashMap<>();
 
-    private BukkitTask task;
-
     public WingRenderer(Plugin plugin, CosmeticsConfig config, CosmeticState state) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.config = Objects.requireNonNull(config, "config");
         this.state = Objects.requireNonNull(state, "state");
     }
 
-    public void start() {
-        if (this.task != null) {
-            return;
-        }
-        this.task = this.plugin.getServer().getScheduler()
-                .runTaskTimer(this.plugin, this::turn, 1L, 1L);
+    public boolean isEnabled() {
+        return this.config.wings.enabled;
     }
 
-    public void stop() {
-        if (this.task != null) {
-            this.task.cancel();
-            this.task = null;
-        }
-    }
-
-    /**
-     * Points every pair of wings the way its wearer is facing.
-     *
-     * <p>The body rather than the head: wings follow shoulders, and a player looking over their
-     * shoulder should not take their wings with them.
-     */
-    private void turn() {
-        if (this.worn.isEmpty()) {
-            return;
-        }
-
-        for (Map.Entry<UUID, UUID> entry : this.worn.entrySet()) {
-            Player player = this.plugin.getServer().getPlayer(entry.getKey());
-            if (player == null || !player.isOnline()) {
-                continue;
-            }
-
-            Entity display = this.plugin.getServer().getEntity(entry.getValue());
-            if (display == null) {
-                continue;
-            }
-
-            float yaw = player.getBodyYaw();
-            Float last = this.facing.get(entry.getKey());
-            // A degree is below what anybody can see, and above what a standing player's
-            // jitter produces.
-            if (last != null && Math.abs(angleBetween(last, yaw)) < 1.0f) {
-                continue;
-            }
-
-            this.facing.put(entry.getKey(), yaw);
-            display.setRotation(yaw, 0.0f);
-        }
-    }
-
-    /** The shortest way round from one yaw to another, so 359 to 1 is two degrees and not 358. */
-    private static float angleBetween(float from, float to) {
-        float difference = (to - from) % 360.0f;
-        if (difference > 180.0f) {
-            difference -= 360.0f;
-        }
-        if (difference < -180.0f) {
-            difference += 360.0f;
-        }
-        return difference;
+    /** Whether this player already has a pair on. */
+    public boolean has(Player player) {
+        return this.worn.containsKey(player.getUniqueId());
     }
 
     /** Puts on what this player wears, or takes off what they no longer do. Main thread only. */
     public void apply(Player player) {
         this.remove(player);
+
+        if (!this.isEnabled()) {
+            return;
+        }
 
         CosmeticEffect effect = this.state.of(player.getUniqueId(), CosmeticEffect.Kind.WING);
         if (effect == null || !effect.isWorn()) {
@@ -171,6 +119,50 @@ public final class WingRenderer {
         player.addPassenger(display);
         this.worn.put(player.getUniqueId(), display.getUniqueId());
         this.facing.remove(player.getUniqueId());
+    }
+
+    /**
+     * Points one pair of wings the way its wearer is facing. Main thread only.
+     *
+     * <p>The body rather than the head: wings follow shoulders, and a player looking over their
+     * shoulder should not take their wings with them.
+     */
+    public void tick(Player player) {
+        UUID displayId = this.worn.get(player.getUniqueId());
+        if (displayId == null) {
+            return;
+        }
+
+        Entity display = this.plugin.getServer().getEntity(displayId);
+        if (display == null) {
+            // Gone without us. Forgetting it is what lets the heartbeat put a pair back on.
+            this.worn.remove(player.getUniqueId());
+            this.facing.remove(player.getUniqueId());
+            return;
+        }
+
+        float yaw = player.getBodyYaw();
+        Float last = this.facing.get(player.getUniqueId());
+        // A degree is below what anybody can see, and above what a standing player's jitter
+        // produces.
+        if (last != null && Math.abs(angleBetween(last, yaw)) < 1.0F) {
+            return;
+        }
+
+        this.facing.put(player.getUniqueId(), yaw);
+        display.setRotation(yaw, 0.0F);
+    }
+
+    /** The shortest way round from one yaw to another, so 359 to 1 is two degrees and not 358. */
+    private static float angleBetween(float from, float to) {
+        float difference = (to - from) % 360.0F;
+        if (difference > 180.0F) {
+            difference -= 360.0F;
+        }
+        if (difference < -180.0F) {
+            difference += 360.0F;
+        }
+        return difference;
     }
 
     /** Takes what is riding them away, if anything is. */

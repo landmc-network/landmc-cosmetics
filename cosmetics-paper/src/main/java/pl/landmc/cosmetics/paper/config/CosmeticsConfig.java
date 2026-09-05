@@ -12,6 +12,10 @@ import pl.landmc.platform.messaging.redis.RedisConfig;
  * it draws are all decided where it is bought, and travel with the message - so this server
  * needs no list of cosmetics and cannot disagree with one. What is left is how often to draw
  * and how far, which are properties of this server rather than of any cosmetic.
+ *
+ * <p>Each family can be switched off separately, because the answer differs by server: a lobby
+ * wants all of it, and a server where people are fighting each other does not want a pet
+ * wandering into a fight or a line of text hiding what is behind it.
  */
 public class CosmeticsConfig extends OkaeriConfig {
 
@@ -24,6 +28,15 @@ public class CosmeticsConfig extends OkaeriConfig {
 
     @Comment("")
     public WingsSection wings = new WingsSection();
+
+    @Comment("")
+    public StatusesSection statuses = new StatusesSection();
+
+    @Comment("")
+    public PetsSection pets = new PetsSection();
+
+    @Comment("")
+    public TitlesSection titles = new TitlesSection();
 
     @Comment("")
     public MessagingSection messaging = new MessagingSection();
@@ -62,6 +75,10 @@ public class CosmeticsConfig extends OkaeriConfig {
 
     public static class WingsSection extends OkaeriConfig {
 
+        @Comment("Czy skrzydla sa zakladane na tym serwerze.")
+        public boolean enabled = true;
+
+        @Comment("")
         @Comment("Gdzie siedzi model wzgledem miejsca, w ktorym jedzie na graczu.")
         @Comment("To jedyna rzecz tutaj, ktorej nie da sie ustalic inaczej niz patrzac:")
         @Comment("model zrobiony pod montaz innego pluginu siedzi tam, gdzie tamten go")
@@ -79,6 +96,85 @@ public class CosmeticsConfig extends OkaeriConfig {
         @Comment("")
         @Comment("Skala modelu. 1.0 to rozmiar, w jakim zostal narysowany.")
         public double scale = 1.0D;
+    }
+
+    public static class StatusesSection extends OkaeriConfig {
+
+        @Comment("Czy statusy sa pokazywane nad glowami na tym serwerze.")
+        public boolean enabled = true;
+
+        @Comment("")
+        @Comment("Ile nad punktem, w ktorym tekst jedzie na graczu. Domyslnie tuz nad nickiem;")
+        @Comment("za nisko i status przykryje nick, za wysoko i odklei sie od gracza.")
+        @CustomKey("offset-y")
+        public double offsetY = 1.15D;
+
+        @Comment("")
+        @Comment("Skala tekstu. 1.0 to rozmiar nicku.")
+        public double scale = 0.9D;
+
+        @Comment("")
+        @Comment("Przezroczystosc tla, 0-255. Zero to sam tekst bez ciemnego prostokata.")
+        @CustomKey("background-opacity")
+        public int backgroundOpacity = 90;
+
+        @Comment("")
+        @Comment("Z jakiej odleglosci widac status, jako mnoznik zasiegu domyslnego.")
+        @CustomKey("view-range")
+        public double viewRange = 0.6D;
+    }
+
+    public static class PetsSection extends OkaeriConfig {
+
+        @Comment("Czy pupile sa przywolywane na tym serwerze. Na serwerze, gdzie sie walczy,")
+        @Comment("zwierze latajace obok gracza przeszkadza bardziej, niz cieszy.")
+        public boolean enabled = true;
+
+        @Comment("")
+        @Comment("Gdzie pupil leci wzgledem gracza, w blokach: w bok, do tylu i w gore.")
+        @CustomKey("side-offset")
+        public double sideOffset = 0.9D;
+
+        @CustomKey("back-offset")
+        public double backOffset = 0.5D;
+
+        public double height = 0.9D;
+
+        @Comment("")
+        @Comment("Jak szybko pupil dogania swoje miejsce, 0-1. Jeden to sztywne przyklejenie,")
+        @Comment("mniej znaczy, ze zostaje z tylu na zakretach - i wtedy wyglada jak zwierze,")
+        @Comment("a nie jak przyczepiony model.")
+        public double smoothing = 0.35D;
+
+        @Comment("")
+        @Comment("Powyzej ilu blokow od swojego miejsca pupil jest przenoszony od razu,")
+        @Comment("zamiast lecieć przez pol mapy. Teleport gracza to wlasnie ten przypadek.")
+        @CustomKey("catch-up-distance")
+        public double catchUpDistance = 12.0D;
+
+        @Comment("")
+        @Comment("Wysokosc i tempo bujania sie w miejscu. Zero wylacza.")
+        @CustomKey("bob-height")
+        public double bobHeight = 0.12D;
+
+        @Comment("")
+        @Comment("Czy pupil zostawia za soba czasteczki, i co ile tickow.")
+        public boolean particles = true;
+
+        @CustomKey("particle-interval-ticks")
+        public long particleIntervalTicks = 4L;
+    }
+
+    public static class TitlesSection extends OkaeriConfig {
+
+        @Comment("Czy tytuly sa doklejane do nicku na tym serwerze.")
+        public boolean enabled = true;
+
+        @Comment("")
+        @Comment("Jak tytul jest opakowany. {TITLE} to sam tytul ze sklepu.")
+        @Comment("Czyta to landmc-chat - ten plugin tylko oznacza gracza gotowym tekstem,")
+        @Comment("zeby czat i tablista nie musialy wiedziec, ze dodatki w ogole istnieja.")
+        public String format = "<dark_gray>[{TITLE}<dark_gray>] ";
     }
 
     public static class MessagingSection extends OkaeriConfig {

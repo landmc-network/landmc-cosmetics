@@ -8,32 +8,51 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
-import pl.landmc.cosmetics.paper.CosmeticState;
 import pl.landmc.cosmetics.paper.GlowRenderer;
+import pl.landmc.cosmetics.paper.PetRenderer;
+import pl.landmc.cosmetics.paper.StatusRenderer;
+import pl.landmc.cosmetics.paper.TitleApplier;
 import pl.landmc.cosmetics.paper.WingRenderer;
 
 /**
  * Applies what a player was already wearing when they arrive, and clears up after them.
  *
+ * <p>Only the two families nothing else looks after. Wings, statuses and pets are put on by the
+ * heartbeat on its next pass, which is a tick away and already knows how to notice that
+ * somebody is wearing something they have not got on - doing it here as well would be the same
+ * work twice and a display spawned only to be replaced.
+ *
  * <p>Delayed a tick past the join, and at the lowest priority so that runs last. Two things
  * have to have happened first: the player has to be fully in the world for a glow to stick, and
  * the lobby has to have given them its scoreboard - our teams go on the board they end up with,
  * not the one they had for a moment.
+ *
+ * <p>Leaving is not delayed and clears everything, including what the heartbeat put on. An
+ * entity riding somebody who has disconnected is an entity standing in an empty lobby.
  */
 public final class CosmeticListener implements Listener {
 
     private final Plugin plugin;
-    private final CosmeticState state;
     private final GlowRenderer glow;
     private final WingRenderer wings;
+    private final StatusRenderer statuses;
+    private final PetRenderer pets;
+    private final TitleApplier titles;
 
     public CosmeticListener(
-            Plugin plugin, CosmeticState state, GlowRenderer glow, WingRenderer wings) {
+            Plugin plugin,
+            GlowRenderer glow,
+            WingRenderer wings,
+            StatusRenderer statuses,
+            PetRenderer pets,
+            TitleApplier titles) {
 
         this.plugin = Objects.requireNonNull(plugin, "plugin");
-        this.state = Objects.requireNonNull(state, "state");
         this.glow = Objects.requireNonNull(glow, "glow");
         this.wings = Objects.requireNonNull(wings, "wings");
+        this.statuses = Objects.requireNonNull(statuses, "statuses");
+        this.pets = Objects.requireNonNull(pets, "pets");
+        this.titles = Objects.requireNonNull(titles, "titles");
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -45,15 +64,20 @@ public final class CosmeticListener implements Listener {
             this.glow.apply(player);
             // And everybody else's, on theirs.
             this.glow.syncFor(player);
-            this.wings.apply(player);
+            this.titles.apply(player);
         }, null, 1L);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
-        // Off the boards, but not out of the state: what they wear is the shop's to remember,
-        // and they may be walking to another server rather than leaving the network.
-        this.glow.forget(event.getPlayer());
-        this.wings.remove(event.getPlayer());
+        Player player = event.getPlayer();
+
+        // Off the boards and out of the world, but not out of the state: what they wear is the
+        // shop's to remember, and they may be walking to another server rather than leaving.
+        this.glow.forget(player);
+        this.wings.remove(player);
+        this.statuses.remove(player);
+        this.pets.remove(player);
+        this.titles.remove(player);
     }
 }
