@@ -36,9 +36,6 @@ public class CosmeticsConfig extends OkaeriConfig {
     public PetsSection pets = new PetsSection();
 
     @Comment("")
-    public TitlesSection titles = new TitlesSection();
-
-    @Comment("")
     public MessagingSection messaging = new MessagingSection();
 
     public static class ParticlesSection extends OkaeriConfig {
@@ -107,7 +104,7 @@ public class CosmeticsConfig extends OkaeriConfig {
         @Comment("Ile nad punktem, w ktorym tekst jedzie na graczu. Domyslnie tuz nad nickiem;")
         @Comment("za nisko i status przykryje nick, za wysoko i odklei sie od gracza.")
         @CustomKey("offset-y")
-        public double offsetY = 1.15D;
+        public double offsetY = 0.55D;
 
         @Comment("")
         @Comment("Skala tekstu. 1.0 to rozmiar nicku.")
@@ -163,18 +160,6 @@ public class CosmeticsConfig extends OkaeriConfig {
 
         @CustomKey("particle-interval-ticks")
         public long particleIntervalTicks = 4L;
-    }
-
-    public static class TitlesSection extends OkaeriConfig {
-
-        @Comment("Czy tytuly sa doklejane do nicku na tym serwerze.")
-        public boolean enabled = true;
-
-        @Comment("")
-        @Comment("Jak tytul jest opakowany. {TITLE} to sam tytul ze sklepu.")
-        @Comment("Czyta to landmc-chat - ten plugin tylko oznacza gracza gotowym tekstem,")
-        @Comment("zeby czat i tablista nie musialy wiedziec, ze dodatki w ogole istnieja.")
-        public String format = "<dark_gray>[{TITLE}<dark_gray>] ";
     }
 
     public static class MessagingSection extends OkaeriConfig {

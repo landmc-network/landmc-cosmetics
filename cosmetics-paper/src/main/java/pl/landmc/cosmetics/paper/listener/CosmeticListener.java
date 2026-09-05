@@ -11,16 +11,15 @@ import org.bukkit.plugin.Plugin;
 import pl.landmc.cosmetics.paper.GlowRenderer;
 import pl.landmc.cosmetics.paper.PetRenderer;
 import pl.landmc.cosmetics.paper.StatusRenderer;
-import pl.landmc.cosmetics.paper.TitleApplier;
 import pl.landmc.cosmetics.paper.WingRenderer;
 
 /**
  * Applies what a player was already wearing when they arrive, and clears up after them.
  *
- * <p>Only the two families nothing else looks after. Wings, statuses and pets are put on by the
- * heartbeat on its next pass, which is a tick away and already knows how to notice that
- * somebody is wearing something they have not got on - doing it here as well would be the same
- * work twice and a display spawned only to be replaced.
+ * <p>Only the glow, which is the one family nothing else looks after. Wings, statuses and pets
+ * are put on by the heartbeat on its next pass, which is a tick away and already knows how to
+ * notice that somebody is wearing something they have not got on - doing it here as well would
+ * be the same work twice and a display spawned only to be replaced.
  *
  * <p>Delayed a tick past the join, and at the lowest priority so that runs last. Two things
  * have to have happened first: the player has to be fully in the world for a glow to stick, and
@@ -37,22 +36,19 @@ public final class CosmeticListener implements Listener {
     private final WingRenderer wings;
     private final StatusRenderer statuses;
     private final PetRenderer pets;
-    private final TitleApplier titles;
 
     public CosmeticListener(
             Plugin plugin,
             GlowRenderer glow,
             WingRenderer wings,
             StatusRenderer statuses,
-            PetRenderer pets,
-            TitleApplier titles) {
+            PetRenderer pets) {
 
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.glow = Objects.requireNonNull(glow, "glow");
         this.wings = Objects.requireNonNull(wings, "wings");
         this.statuses = Objects.requireNonNull(statuses, "statuses");
         this.pets = Objects.requireNonNull(pets, "pets");
-        this.titles = Objects.requireNonNull(titles, "titles");
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -64,7 +60,6 @@ public final class CosmeticListener implements Listener {
             this.glow.apply(player);
             // And everybody else's, on theirs.
             this.glow.syncFor(player);
-            this.titles.apply(player);
         }, null, 1L);
     }
 
@@ -78,6 +73,5 @@ public final class CosmeticListener implements Listener {
         this.wings.remove(player);
         this.statuses.remove(player);
         this.pets.remove(player);
-        this.titles.remove(player);
     }
 }

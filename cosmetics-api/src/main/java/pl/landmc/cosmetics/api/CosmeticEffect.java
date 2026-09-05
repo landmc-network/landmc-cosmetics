@@ -27,7 +27,7 @@ import java.util.Objects;
  * @param material the item a worn model is carried on, for {@link Kind#WING}
  * @param modelData which model of that item to draw, for {@link Kind#WING}
  * @param entity what a pet is, for {@link Kind#PET}, as a Minecraft entity type
- * @param text the words shown, for {@link Kind#STATUS}, {@link Kind#TITLE} and a pet's name
+ * @param text the words shown, for {@link Kind#STATUS} and for a pet's name
  */
 public record CosmeticEffect(
         Kind kind,
@@ -78,11 +78,6 @@ public record CosmeticEffect(
         return new CosmeticEffect(Kind.STATUS, "", "", "", "", 0, "", text);
     }
 
-    /** Words shown beside the player's name, in chat and in the tab list. */
-    public static CosmeticEffect title(String text) {
-        return new CosmeticEffect(Kind.TITLE, "", "", "", "", 0, "", text);
-    }
-
     /**
      * A small creature that follows the player about.
      *
@@ -99,7 +94,7 @@ public record CosmeticEffect(
             case PARTICLE -> !this.particle.isBlank();
             case GLOW -> !this.colour.isBlank();
             case WING -> !this.material.isBlank() && this.modelData > 0;
-            case STATUS, TITLE -> !this.text.isBlank();
+            case STATUS -> !this.text.isBlank();
             case PET -> !this.entity.isBlank();
         };
     }
@@ -124,9 +119,6 @@ public record CosmeticEffect(
 
         /** A line of text above the player's head. */
         STATUS,
-
-        /** Words beside the player's name, wherever that name is written. */
-        TITLE,
 
         /** A creature following the player around. */
         PET

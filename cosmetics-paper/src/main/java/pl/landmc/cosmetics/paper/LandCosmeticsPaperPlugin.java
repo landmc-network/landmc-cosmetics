@@ -39,9 +39,9 @@ import pl.landmc.platform.paper.scheduler.MainThreadExecutor;
  * told and it draws. A backend that could also decide would be a second opinion about what
  * somebody paid for.
  *
- * <p>Six families, and each is switched on separately here, because the answer is a property of
- * the server rather than of the cosmetic: a lobby wants all of it, and a server where people
- * are fighting wants none of the parts that get in the way of seeing what is happening.
+ * <p>Each family is switched on separately here, because the answer is a property of the
+ * server rather than of the cosmetic: a lobby wants all of it, and a server where people are
+ * fighting wants none of the parts that get in the way of seeing what is happening.
  *
  * <p>Every message arrives on a messaging worker and every Bukkit call has to happen on the main
  * thread, so each handler hands the work over before touching a player.
@@ -59,7 +59,6 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
     private WingRenderer wings;
     private StatusRenderer statuses;
     private PetRenderer pets;
-    private TitleApplier titles;
     private CosmeticHeartbeat heartbeat;
     private MessageBus bus;
 
@@ -76,7 +75,6 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
         this.wings = new WingRenderer(this, this.config, this.state);
         this.statuses = new StatusRenderer(this, this.config, this.state, formatter);
         this.pets = new PetRenderer(this, this.config, this.state, formatter);
-        this.titles = new TitleApplier(this, this.config, this.state);
 
         this.particles = new ParticleRenderer(this, this.config, this.state);
         this.particles.start();
@@ -92,8 +90,7 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
         this.lifecycle.register(this.bus).enableAll();
 
         this.getServer().getPluginManager().registerEvents(
-                new CosmeticListener(
-                        this, this.glow, this.wings, this.statuses, this.pets, this.titles),
+                new CosmeticListener(this, this.glow, this.wings, this.statuses, this.pets),
                 this);
 
         this.requestSnapshot(mainThread);
@@ -135,9 +132,6 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
         if (this.pets != null) {
             this.pets.removeAll();
         }
-        if (this.titles != null) {
-            this.titles.removeAll(this.getServer().getOnlinePlayers());
-        }
 
         this.lifecycle.disableAll();
     }
@@ -172,7 +166,6 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
             case WING -> this.wings.apply(player);
             case STATUS -> this.statuses.apply(player);
             case PET -> this.pets.apply(player);
-            case TITLE -> this.titles.apply(player);
             // Particles need nothing here: the draw pass reads the state each frame.
             case PARTICLE -> { }
         }
@@ -201,11 +194,10 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
                     }
                     this.state.replaceAll(entries);
 
-                    // Only what the heartbeat does not put on by itself. It notices the rest on
-                    // its next pass, which is a tick away.
+                    // The glow is the only one the heartbeat does not put on by itself. It
+                    // notices the rest on its next pass, which is a tick away.
                     for (Player player : this.getServer().getOnlinePlayers()) {
                         this.glow.apply(player);
-                        this.titles.apply(player);
                     }
 
                     LOGGER.info("Cosmetic state received: {} worn.", snapshot.worn().size());
@@ -221,7 +213,7 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
 
     /** Which families this server draws, for the line in the log that says what it will do. */
     private String drawn() {
-        List<String> families = new ArrayList<>(5);
+        List<String> families = new ArrayList<>(4);
         if (this.particles.isEnabled()) {
             families.add("czasteczki");
         }
@@ -233,9 +225,6 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
         }
         if (this.pets.isEnabled()) {
             families.add("pupile");
-        }
-        if (this.titles.isEnabled()) {
-            families.add("tytuly");
         }
         return families.isEmpty() ? "nic" : String.join(", ", families);
     }
