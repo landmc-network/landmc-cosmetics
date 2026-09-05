@@ -130,12 +130,12 @@ public class CosmeticsConfig extends OkaeriConfig {
         @Comment("")
         @Comment("Gdzie pupil leci wzgledem gracza, w blokach: w bok, do tylu i w gore.")
         @CustomKey("side-offset")
-        public double sideOffset = 0.9D;
+        public double sideOffset = 1.3D;
 
         @CustomKey("back-offset")
-        public double backOffset = 0.5D;
+        public double backOffset = 0.75D;
 
-        public double height = 0.9D;
+        public double height = 1.35D;
 
         @Comment("")
         @Comment("Jak szybko pupil dogania swoje miejsce, 0-1. Jeden to sztywne przyklejenie,")
