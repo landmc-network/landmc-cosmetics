@@ -71,7 +71,7 @@ public class CosmeticsConfig extends OkaeriConfig {
         public double offsetX = 0.0D;
 
         @CustomKey("offset-y")
-        public double offsetY = -1.1D;
+        public double offsetY = -0.75D;
 
         @CustomKey("offset-z")
         public double offsetZ = -0.25D;
