@@ -51,6 +51,7 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
     private CosmeticsConfig config;
     private ParticleRenderer particles;
     private GlowRenderer glow;
+    private WingRenderer wings;
     private MessageBus bus;
 
     @Override
@@ -61,6 +62,7 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
                 this.getDataFolder().toPath(), "config.yml", CosmeticsConfig.class);
 
         this.glow = new GlowRenderer(this, this.state);
+        this.wings = new WingRenderer(this, this.state);
         this.particles = new ParticleRenderer(this, this.config, this.state);
         this.particles.start();
 
@@ -71,7 +73,7 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
         this.lifecycle.register(this.bus).enableAll();
 
         this.getServer().getPluginManager().registerEvents(
-                new CosmeticListener(this, this.state, this.glow), this);
+                new CosmeticListener(this, this.state, this.glow, this.wings), this);
 
         this.requestSnapshot(mainThread);
 
@@ -98,6 +100,11 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
             }
         }
 
+        // An armour stand nobody takes away is an armour stand still standing there next week.
+        if (this.wings != null) {
+            this.wings.removeAll();
+        }
+
         this.lifecycle.disableAll();
     }
 
@@ -109,10 +116,17 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
 
             mainThread.execute(() -> {
                 Player player = this.getServer().getPlayer(message.playerId());
-                if (player != null && message.effect().kind() == CosmeticEffect.Kind.GLOW) {
-                    this.glow.apply(player);
+                if (player == null) {
+                    return;
                 }
-                // Particles need nothing here: the draw pass reads the state each frame.
+
+                switch (message.effect().kind()) {
+                    case GLOW -> this.glow.apply(player);
+                    case WING -> this.wings.apply(player);
+                    // Particles need nothing here: the draw pass reads the state each frame.
+                    case PARTICLE -> { }
+                    default -> { }
+                }
             });
         });
     }
@@ -142,6 +156,7 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
 
                     for (Player player : this.getServer().getOnlinePlayers()) {
                         this.glow.apply(player);
+                        this.wings.apply(player);
                     }
 
                     LOGGER.info("Cosmetic state received: {} worn.", snapshot.worn().size());

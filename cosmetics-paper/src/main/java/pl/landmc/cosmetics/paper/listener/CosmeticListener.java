@@ -10,6 +10,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import pl.landmc.cosmetics.paper.CosmeticState;
 import pl.landmc.cosmetics.paper.GlowRenderer;
+import pl.landmc.cosmetics.paper.WingRenderer;
 
 /**
  * Applies what a player was already wearing when they arrive, and clears up after them.
@@ -24,11 +25,15 @@ public final class CosmeticListener implements Listener {
     private final Plugin plugin;
     private final CosmeticState state;
     private final GlowRenderer glow;
+    private final WingRenderer wings;
 
-    public CosmeticListener(Plugin plugin, CosmeticState state, GlowRenderer glow) {
+    public CosmeticListener(
+            Plugin plugin, CosmeticState state, GlowRenderer glow, WingRenderer wings) {
+
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.state = Objects.requireNonNull(state, "state");
         this.glow = Objects.requireNonNull(glow, "glow");
+        this.wings = Objects.requireNonNull(wings, "wings");
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -40,6 +45,7 @@ public final class CosmeticListener implements Listener {
             this.glow.apply(player);
             // And everybody else's, on theirs.
             this.glow.syncFor(player);
+            this.wings.apply(player);
         }, null, 1L);
     }
 
@@ -48,5 +54,6 @@ public final class CosmeticListener implements Listener {
         // Off the boards, but not out of the state: what they wear is the shop's to remember,
         // and they may be walking to another server rather than leaving the network.
         this.glow.forget(event.getPlayer());
+        this.wings.remove(event.getPlayer());
     }
 }

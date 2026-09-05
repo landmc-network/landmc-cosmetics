@@ -20,27 +20,47 @@ import java.util.Objects;
  * @param particle the particle to draw, for {@link Kind#PARTICLE}
  * @param pattern how to arrange it - a helix, a ring, a cloud
  * @param colour the glow colour, for {@link Kind#GLOW}, as a named Minecraft colour
+ * @param material the item a worn model is carried on, for {@link Kind#WING}
+ * @param modelData which model of that item to draw, for {@link Kind#WING}
  */
-public record CosmeticEffect(Kind kind, String particle, String pattern, String colour) {
+public record CosmeticEffect(
+        Kind kind,
+        String particle,
+        String pattern,
+        String colour,
+        String material,
+        int modelData) {
 
     public CosmeticEffect {
         Objects.requireNonNull(kind, "kind");
         particle = particle == null ? "" : particle;
         pattern = pattern == null ? "" : pattern;
         colour = colour == null ? "" : colour;
+        material = material == null ? "" : material;
     }
 
     /** Nothing worn. Sent when a player takes a cosmetic off, so the backend clears it. */
     public static CosmeticEffect none(Kind kind) {
-        return new CosmeticEffect(kind, "", "", "");
+        return new CosmeticEffect(kind, "", "", "", "", 0);
     }
 
     public static CosmeticEffect particle(String particle, String pattern) {
-        return new CosmeticEffect(Kind.PARTICLE, particle, pattern, "");
+        return new CosmeticEffect(Kind.PARTICLE, particle, pattern, "", "", 0);
     }
 
     public static CosmeticEffect glow(String colour) {
-        return new CosmeticEffect(Kind.GLOW, "", "", colour);
+        return new CosmeticEffect(Kind.GLOW, "", "", colour, "", 0);
+    }
+
+    /**
+     * A model worn on the back.
+     *
+     * <p>An item and a number rather than a name of a model, because that is what a client is
+     * actually told: the pack maps a material and a custom model value onto a model, and this
+     * side of the network has no way to name one directly.
+     */
+    public static CosmeticEffect wing(String material, int modelData) {
+        return new CosmeticEffect(Kind.WING, "", "", "", material, modelData);
     }
 
     /** Whether this is a cosmetic at all, or the absence of one. */
@@ -48,6 +68,7 @@ public record CosmeticEffect(Kind kind, String particle, String pattern, String 
         return switch (this.kind) {
             case PARTICLE -> !this.particle.isBlank();
             case GLOW -> !this.colour.isBlank();
+            case WING -> !this.material.isBlank() && this.modelData > 0;
         };
     }
 
@@ -64,6 +85,9 @@ public record CosmeticEffect(Kind kind, String particle, String pattern, String 
         PARTICLE,
 
         /** The outline the player is drawn with, in a colour. */
-        GLOW
+        GLOW,
+
+        /** A model carried behind the player. */
+        WING
     }
 }
