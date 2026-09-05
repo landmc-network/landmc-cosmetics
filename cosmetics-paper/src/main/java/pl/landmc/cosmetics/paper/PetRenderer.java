@@ -87,7 +87,9 @@ public final class PetRenderer {
             return;
         }
 
-        LivingEntity pet = player.getWorld().spawn(
+        LivingEntity pet;
+        try {
+            pet = player.getWorld().spawn(
                 this.target(player, 0), species, spawned -> {
                     spawned.setAI(false);
                     spawned.setSilent(true);
@@ -115,6 +117,13 @@ public final class PetRenderer {
                         slime.setSize(1);
                     }
                 });
+        }
+        catch (RuntimeException refused) {
+            // Something here does not allow animals to be spawned. A remembered nothing, so
+            // the heartbeat does not ask again every tick for as long as they are online.
+            this.summoned.put(player.getUniqueId(), null);
+            return;
+        }
 
         this.summoned.put(player.getUniqueId(), pet.getUniqueId());
     }
@@ -135,6 +144,10 @@ public final class PetRenderer {
     /** Sends away every one of them, for a shutdown or a reload. */
     public void removeAll() {
         for (UUID petId : this.summoned.values()) {
+            if (petId == null) {
+                continue;
+            }
+
             Entity pet = this.plugin.getServer().getEntity(petId);
             if (pet != null) {
                 pet.remove();

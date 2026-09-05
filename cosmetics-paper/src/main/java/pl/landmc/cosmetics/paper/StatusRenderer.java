@@ -80,7 +80,9 @@ public final class StatusRenderer {
         CosmeticsConfig.StatusesSection statuses = this.config.statuses;
         float scale = (float) statuses.scale;
 
-        TextDisplay display = player.getWorld().spawn(
+        TextDisplay display;
+        try {
+            display = player.getWorld().spawn(
                 player.getLocation(), TextDisplay.class, spawned -> {
                     spawned.text(this.formatter.format(effect.text()));
                     // Turns to whoever is reading it, like the name it sits above. A fixed one
@@ -101,6 +103,13 @@ public final class StatusRenderer {
                     spawned.setInvulnerable(true);
                     spawned.setSilent(true);
                 });
+        }
+        catch (RuntimeException refused) {
+            // A remembered nothing, so the heartbeat does not ask again every tick. See
+            // WingRenderer, which is refused in exactly the same circumstances.
+            this.worn.put(player.getUniqueId(), null);
+            return;
+        }
 
         player.addPassenger(display);
         this.worn.put(player.getUniqueId(), display.getUniqueId());
@@ -122,6 +131,10 @@ public final class StatusRenderer {
     /** Clears every one of them, for a shutdown or a reload. */
     public void removeAll() {
         for (UUID displayId : this.worn.values()) {
+            if (displayId == null) {
+                continue;
+            }
+
             Entity display = this.plugin.getServer().getEntity(displayId);
             if (display != null) {
                 display.remove();

@@ -94,7 +94,9 @@ public final class WingRenderer {
 
         CosmeticsConfig.WingsSection wings = this.config.wings;
 
-        ItemDisplay display = player.getWorld().spawn(
+        ItemDisplay display;
+        try {
+            display = player.getWorld().spawn(
                 player.getLocation(), ItemDisplay.class, spawned -> {
                     spawned.setItemStack(model);
                     // Fixed, so the model turns with the player rather than swivelling to face
@@ -115,9 +117,28 @@ public final class WingRenderer {
                     spawned.setInvulnerable(true);
                     spawned.setSilent(true);
                 });
+        }
+        catch (RuntimeException refused) {
+            this.refuse(player);
+            return;
+        }
 
         player.addPassenger(display);
         this.worn.put(player.getUniqueId(), display.getUniqueId());
+        this.facing.remove(player.getUniqueId());
+    }
+
+    /**
+     * Remembers that a spawn was refused, so it is not attempted again every tick.
+     *
+     * <p>A plugin on this server can cancel a spawn - a lobby that allows no entities, a
+     * protection that guards its region. The heartbeat notices a wearer with nothing on and
+     * puts it back, so without this a refusal would be an exception twenty times a second for
+     * as long as that player stays. A remembered nothing is still an answer, and the next
+     * deliberate change puts the question again.
+     */
+    private void refuse(Player player) {
+        this.worn.put(player.getUniqueId(), null);
         this.facing.remove(player.getUniqueId());
     }
 
@@ -182,6 +203,10 @@ public final class WingRenderer {
     /** Clears every one of them, for a shutdown or a reload. */
     public void removeAll() {
         for (UUID displayId : this.worn.values()) {
+            if (displayId == null) {
+                continue;
+            }
+
             Entity display = this.plugin.getServer().getEntity(displayId);
             if (display != null) {
                 display.remove();
