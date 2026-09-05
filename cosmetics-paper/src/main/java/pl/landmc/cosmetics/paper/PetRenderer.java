@@ -8,6 +8,7 @@ import java.util.UUID;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.entity.Ageable;
+import org.bukkit.entity.Bat;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
@@ -34,6 +35,12 @@ import pl.landmc.platform.component.ComponentFormatter;
  * is deliberately behind: it flies towards where it should be rather than appearing there, so
  * it swings wide on a corner and catches up on the straight, and that lag is the whole
  * difference between a pet and a lamp bolted to somebody's shoulder.
+ *
+ * <p>Which animals can be pets is not entirely a matter of taste. A server set to peaceful
+ * deletes anything hostile the tick it appears, and no amount of asking politely - persistence,
+ * invulnerability, no mind of its own - changes that; a slime and a vex are hostile whatever we
+ * do to them. So a pet that goes missing is remembered as refused rather than called back,
+ * because the heartbeat would otherwise spawn and lose one twenty times a second for ever.
  */
 public final class PetRenderer {
 
@@ -116,12 +123,20 @@ public final class PetRenderer {
                     if (spawned instanceof Slime slime) {
                         slime.setSize(1);
                     }
+                    // A bat with no mind of its own hangs upside down by default, which is a
+                    // fine thing for a bat to do and a poor thing for a pet to do.
+                    if (spawned instanceof Bat bat) {
+                        bat.setAwake(true);
+                    }
                 });
         }
         catch (RuntimeException refused) {
             // Something here does not allow animals to be spawned. A remembered nothing, so
             // the heartbeat does not ask again every tick for as long as they are online.
             this.summoned.put(player.getUniqueId(), null);
+            this.plugin.getLogger().warning(
+                    "Refused a " + effect.entity() + " for " + player.getName()
+                            + " (" + refused.getMessage() + ").");
             return;
         }
 
@@ -170,9 +185,15 @@ public final class PetRenderer {
 
         Entity pet = this.plugin.getServer().getEntity(petId);
         if (pet == null || pet.isDead()) {
-            // Gone without us: an unloaded world, a plugin that clears entities. Forgetting it
-            // is what lets the heartbeat call it back on the next pass.
-            this.summoned.remove(player.getUniqueId());
+            // Gone without us: a peaceful difficulty, a plugin that clears entities, a world
+            // unloaded underneath it. Remembered as a refusal and not retried - whatever took
+            // it away will take the next one away too, and a pet respawned every tick is worse
+            // than no pet at all.
+            this.summoned.put(player.getUniqueId(), null);
+            this.plugin.getLogger().warning(
+                    "Something removed " + player.getName() + "'s pet; not spawning it again"
+                            + " until they change it. A peaceful difficulty does this to any"
+                            + " hostile animal.");
             return;
         }
 
