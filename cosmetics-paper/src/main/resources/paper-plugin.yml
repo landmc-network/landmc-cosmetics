@@ -1,0 +1,7 @@
+name: landmc-cosmetics
+version: '${version}'
+main: pl.landmc.cosmetics.paper.LandCosmeticsPaperPlugin
+api-version: '26.2'
+description: Dodatki i kosmetyki - strona backendowa. Sklep i wlasnosc sa na proxy.
+author: Crispi
+website: https://github.com/landmc-network/landmc-cosmetics

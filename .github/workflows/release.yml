@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish, without the leading v (e.g. 1.0.0)'
+        required: true
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # A tag is the version. Keeping it out of gradle.properties means the file never has to
+      # be bumped, and a release cannot be published under a version nobody tagged.
+      - name: Resolve version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          case "$VERSION" in
+            *-SNAPSHOT)
+              echo "Refusing to release $VERSION: a release must be a fixed version." >&2
+              exit 1
+              ;;
+          esac
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing $VERSION"
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # The credentials are needed to build, not only to publish: the platform modules this
+      # depends on live in GitHub Packages, which requires a login even for a public package.
+      - name: Build
+        run: >-
+          ./gradlew build --no-daemon
+          -Pversion=${{ steps.version.outputs.version }}
+          -Pgpr.user=${{ github.actor }}
+          -Pgpr.token=${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to GitHub Packages
+        run: >-
+          ./gradlew publishAllPublicationsToGitHubPackagesRepository --no-daemon
+          -Pversion=${{ steps.version.outputs.version }}
+          -Pgpr.user=${{ github.actor }}
+          -Pgpr.token=${{ secrets.GITHUB_TOKEN }}
+
+      # The plugin jar is attached so a version can be installed without a GitHub Packages
+      # token, which is otherwise required even for a public package.
+      - name: Create the GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            cosmetics-paper/build/libs/landmc-cosmetics.jar
