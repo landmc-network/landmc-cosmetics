@@ -65,6 +65,7 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
         this.wings = new WingRenderer(this, this.config, this.state);
         this.particles = new ParticleRenderer(this, this.config, this.state);
         this.particles.start();
+        this.wings.start();
 
         Executor mainThread = new MainThreadExecutor(this);
 
@@ -89,6 +90,10 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
     public void onDisable() {
         if (this.particles != null) {
             this.particles.stop();
+        }
+
+        if (this.wings != null) {
+            this.wings.stop();
         }
 
         // Before the bus goes: a player left glowing is a player the next plugin to touch that

@@ -13,6 +13,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
@@ -34,6 +35,11 @@ import pl.landmc.cosmetics.paper.config.CosmeticsConfig;
  * <p>The model travels as a material and a number because that is what the client is told - a
  * pack maps those onto a model and there is no way to name one from the server.
  *
+ * <p>Riding something does not make an entity turn with it. A display keeps whatever yaw it was
+ * spawned with, so a pair of wings that is never told otherwise points at one compass direction
+ * for ever while its wearer walks circles around it. Turning them is therefore a job with a
+ * heartbeat, and it walks the few people wearing wings rather than everybody online.
+ *
  * <p>The displays are removed when the wearer leaves, when they take the wings off and when the
  * plugin stops. An entity nobody cleans up is an entity still there next week.
  */
@@ -46,10 +52,82 @@ public final class WingRenderer {
     /** What is riding each player, so it can be taken away again. */
     private final Map<UUID, UUID> worn = new HashMap<>();
 
+    /**
+     * The yaw each display was last turned to.
+     *
+     * <p>Kept so a standing player costs nothing: setting a rotation is a packet to everybody
+     * who can see them, and somebody who has not turned does not need one every tick.
+     */
+    private final Map<UUID, Float> facing = new HashMap<>();
+
+    private BukkitTask task;
+
     public WingRenderer(Plugin plugin, CosmeticsConfig config, CosmeticState state) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.config = Objects.requireNonNull(config, "config");
         this.state = Objects.requireNonNull(state, "state");
+    }
+
+    public void start() {
+        if (this.task != null) {
+            return;
+        }
+        this.task = this.plugin.getServer().getScheduler()
+                .runTaskTimer(this.plugin, this::turn, 1L, 1L);
+    }
+
+    public void stop() {
+        if (this.task != null) {
+            this.task.cancel();
+            this.task = null;
+        }
+    }
+
+    /**
+     * Points every pair of wings the way its wearer is facing.
+     *
+     * <p>The body rather than the head: wings follow shoulders, and a player looking over their
+     * shoulder should not take their wings with them.
+     */
+    private void turn() {
+        if (this.worn.isEmpty()) {
+            return;
+        }
+
+        for (Map.Entry<UUID, UUID> entry : this.worn.entrySet()) {
+            Player player = this.plugin.getServer().getPlayer(entry.getKey());
+            if (player == null || !player.isOnline()) {
+                continue;
+            }
+
+            Entity display = this.plugin.getServer().getEntity(entry.getValue());
+            if (display == null) {
+                continue;
+            }
+
+            float yaw = player.getBodyYaw();
+            Float last = this.facing.get(entry.getKey());
+            // A degree is below what anybody can see, and above what a standing player's
+            // jitter produces.
+            if (last != null && Math.abs(angleBetween(last, yaw)) < 1.0f) {
+                continue;
+            }
+
+            this.facing.put(entry.getKey(), yaw);
+            display.setRotation(yaw, 0.0f);
+        }
+    }
+
+    /** The shortest way round from one yaw to another, so 359 to 1 is two degrees and not 358. */
+    private static float angleBetween(float from, float to) {
+        float difference = (to - from) % 360.0f;
+        if (difference > 180.0f) {
+            difference -= 360.0f;
+        }
+        if (difference < -180.0f) {
+            difference += 360.0f;
+        }
+        return difference;
     }
 
     /** Puts on what this player wears, or takes off what they no longer do. Main thread only. */
@@ -92,11 +170,13 @@ public final class WingRenderer {
 
         player.addPassenger(display);
         this.worn.put(player.getUniqueId(), display.getUniqueId());
+        this.facing.remove(player.getUniqueId());
     }
 
     /** Takes what is riding them away, if anything is. */
     public void remove(Player player) {
         UUID displayId = this.worn.remove(player.getUniqueId());
+        this.facing.remove(player.getUniqueId());
         if (displayId == null) {
             return;
         }
@@ -116,6 +196,7 @@ public final class WingRenderer {
             }
         }
         this.worn.clear();
+        this.facing.clear();
     }
 
     /** The item the pack draws as this model, or null when it names something we do not have. */

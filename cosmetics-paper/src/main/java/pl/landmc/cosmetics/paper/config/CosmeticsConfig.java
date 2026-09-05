@@ -74,7 +74,7 @@ public class CosmeticsConfig extends OkaeriConfig {
         public double offsetY = -1.1D;
 
         @CustomKey("offset-z")
-        public double offsetZ = 0.0D;
+        public double offsetZ = -0.25D;
 
         @Comment("")
         @Comment("Skala modelu. 1.0 to rozmiar, w jakim zostal narysowany.")
