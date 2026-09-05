@@ -62,7 +62,7 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
                 this.getDataFolder().toPath(), "config.yml", CosmeticsConfig.class);
 
         this.glow = new GlowRenderer(this, this.state);
-        this.wings = new WingRenderer(this, this.state);
+        this.wings = new WingRenderer(this, this.config, this.state);
         this.particles = new ParticleRenderer(this, this.config, this.state);
         this.particles.start();
 

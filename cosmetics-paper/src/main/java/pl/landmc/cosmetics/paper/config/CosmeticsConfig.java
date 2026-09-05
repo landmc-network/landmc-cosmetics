@@ -23,6 +23,9 @@ public class CosmeticsConfig extends OkaeriConfig {
     public ParticlesSection particles = new ParticlesSection();
 
     @Comment("")
+    public WingsSection wings = new WingsSection();
+
+    @Comment("")
     public MessagingSection messaging = new MessagingSection();
 
     public static class ParticlesSection extends OkaeriConfig {
@@ -55,6 +58,27 @@ public class CosmeticsConfig extends OkaeriConfig {
         @Comment("ktory jej nie zobaczy, to pakiet wyslany po nic.")
         @CustomKey("view-distance")
         public double viewDistance = 32.0D;
+    }
+
+    public static class WingsSection extends OkaeriConfig {
+
+        @Comment("Gdzie siedzi model wzgledem miejsca, w ktorym jedzie na graczu.")
+        @Comment("To jedyna rzecz tutaj, ktorej nie da sie ustalic inaczej niz patrzac:")
+        @Comment("model zrobiony pod montaz innego pluginu siedzi tam, gdzie tamten go")
+        @Comment("postawil, a w pliku modelu nie ma o tym ani slowa.")
+        @Comment("Y w dol to wartosc ujemna, Z do tylu to wartosc ujemna.")
+        @CustomKey("offset-x")
+        public double offsetX = 0.0D;
+
+        @CustomKey("offset-y")
+        public double offsetY = -1.1D;
+
+        @CustomKey("offset-z")
+        public double offsetZ = 0.0D;
+
+        @Comment("")
+        @Comment("Skala modelu. 1.0 to rozmiar, w jakim zostal narysowany.")
+        public double scale = 1.0D;
     }
 
     public static class MessagingSection extends OkaeriConfig {
