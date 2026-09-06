@@ -22,7 +22,8 @@ import java.util.Objects;
  *
  * @param kind which family it belongs to, and therefore which of the fields below mean anything
  * @param particle the particle to draw, for {@link Kind#PARTICLE} and the trail behind a pet
- * @param pattern how to arrange it - a helix, a ring, a cloud
+ * @param pattern how to arrange it - a helix, a ring, a cloud - and, for
+ *     {@link Kind#CHEST}, which choreography a crate opens with
  * @param colour the glow colour, for {@link Kind#GLOW}, as a named Minecraft colour
  * @param material the item a worn model is carried on, for {@link Kind#WING}
  * @param modelData which model of that item to draw, for {@link Kind#WING}
@@ -73,6 +74,22 @@ public record CosmeticEffect(
         return new CosmeticEffect(Kind.WING, "", "", "", material, modelData, "", "");
     }
 
+    /**
+     * The choreography a magic chest opens with.
+     *
+     * <p>A name and nothing else, which is the one place this module steps away from sending
+     * the whole effect. A trail is three strings and a backend that has never heard of it can
+     * still draw it; an opening is a minute of movement, sound and timing that no record of
+     * loose fields would describe without becoming a scripting language. So the skyblock server
+     * owns what each one looks like and this carries only which one was chosen - the shop still
+     * holds the single catalogue of what exists and what it costs.
+     *
+     * @param style the identifier the drawing server knows the choreography by
+     */
+    public static CosmeticEffect chest(String style) {
+        return new CosmeticEffect(Kind.CHEST, "", style, "", "", 0, "", "");
+    }
+
     /** A line of text floating above the player's head. */
     public static CosmeticEffect status(String text) {
         return new CosmeticEffect(Kind.STATUS, "", "", "", "", 0, "", text);
@@ -96,6 +113,7 @@ public record CosmeticEffect(
             case WING -> !this.material.isBlank() && this.modelData > 0;
             case STATUS -> !this.text.isBlank();
             case PET -> !this.entity.isBlank();
+            case CHEST -> !this.pattern.isBlank();
         };
     }
 
@@ -121,6 +139,15 @@ public record CosmeticEffect(
         STATUS,
 
         /** A creature following the player around. */
-        PET
+        PET,
+
+        /**
+         * The way a magic chest opens for this player.
+         *
+         * <p>Not drawn on the player and not visible in a lobby, unlike the rest, but worn in
+         * the sense that matters here: one at a time, bought with diamonds, replaced by putting
+         * on another. Only the server with the chests on it acts on this one.
+         */
+        CHEST
     }
 }

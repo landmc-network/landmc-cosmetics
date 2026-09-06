@@ -168,6 +168,9 @@ public final class LandCosmeticsPaperPlugin extends JavaPlugin {
             case PET -> this.pets.apply(player);
             // Particles need nothing here: the draw pass reads the state each frame.
             case PARTICLE -> { }
+            // Nothing to draw on the player at all: a chest animation is played by the server
+            // the chests are on, when one is opened, and is never worn anywhere visible.
+            case CHEST -> { }
         }
     }
 
